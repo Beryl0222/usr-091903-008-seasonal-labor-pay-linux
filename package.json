@@ -1,0 +1,7 @@
+{
+  "name": "seasonal-labor-pay",
+  "private": true,
+  "scripts": {
+    "test": "node test_service.js"
+  }
+}
