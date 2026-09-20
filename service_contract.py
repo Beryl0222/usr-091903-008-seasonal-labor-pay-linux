@@ -1,19 +1,22 @@
-"""验证基础服务在领域功能开发前保持可运行。"""
+"""验证服务入口、健康检查与 HTTP 契约在领域功能接入后保持稳定。"""
 
 import json
 import threading
 import unittest
+from http.server import ThreadingHTTPServer
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
-from service import Handler, SERVICE_ID, SERVICE_NAME, health_payload
+from api import make_handler
+from service import SERVICE_ID, SERVICE_NAME, build_api, build_service, health_payload
 
 
 class ServiceContractTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from http.server import ThreadingHTTPServer
-        cls.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        cls.api = build_api(build_service(None))
+        cls.handler = make_handler(cls.api)
+        cls.server = ThreadingHTTPServer(("127.0.0.1", 0), cls.handler)
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
         cls.base_url = f"http://127.0.0.1:{cls.server.server_port}"
@@ -40,6 +43,12 @@ class ServiceContractTest(unittest.TestCase):
         with self.assertRaises(HTTPError) as error:
             urlopen(f"{self.base_url}/unknown", timeout=2)
         self.assertEqual(error.exception.code, 404)
+        error.exception.close()
+
+    def test_domain_api_requires_auth(self):
+        with self.assertRaises(HTTPError) as error:
+            urlopen(f"{self.base_url}/admin/workers", timeout=2)
+        self.assertEqual(error.exception.code, 401)
         error.exception.close()
 
 
